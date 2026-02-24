@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GLA member contact extractor · CEO & managers</title>
+    <title>GLA member contact extractor</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         * { box-sizing: border-box; font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
@@ -15,7 +15,7 @@
         .app-header p { margin: 8px 0 0; opacity: 0.8; font-size: 1rem; }
         .paste-panel { padding: 28px 36px 12px 36px; }
         textarea { width: 100%; padding: 22px; border: 2px solid #dde3ed; border-radius: 24px; font-size: 0.95rem; line-height: 1.6; background: #f9fcff; resize: vertical; font-family: 'SF Mono', 'JetBrains Mono', monospace; transition: 0.2s; }
-        textarea:focus { border-color: #0a2f4d; outline: none; background: #ffffff; box-shadow: 0 6px 14px rgba(2,30,65,0.1); }
+        textarea:focus { border-color: #0a2f4d; outline: none; background: #fff; box-shadow: 0 6px 14px rgba(2,30,65,0.1); }
         .toolbar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; margin: 20px 0 12px; }
         .btn-group { display: flex; gap: 12px; flex-wrap: wrap; }
         .btn { background: white; border: 1px solid #b9cee8; padding: 10px 26px; border-radius: 40px; font-weight: 500; color: #1f3b5c; cursor: pointer; transition: 0.1s; display: inline-flex; align-items: center; gap: 8px; box-shadow: 0 3px 8px rgba(0,0,0,0.02); font-size: 0.9rem; }
@@ -39,7 +39,7 @@
 <div class="app-container">
     <div class="app-header">
         <h1>
-            📇 GLA contact extractor 
+            📇 GLA contact extractor
         </h1>
     </div>
 
@@ -47,8 +47,8 @@
         <textarea id="inputText" rows="7" placeholder="Paste the full GLA member page text here (including the Contact Us section)…"></textarea>
         <div class="toolbar">
             <div class="btn-group">
-                <button class="btn btn-primary" id="extractBtn">🔍 Extract &amp; add to table</button>
-                <button class="btn btn-outline" id="clearBtn">🗑️ Clear all</button>
+                <button class="btn btn-primary" id="extractBtn">&#128269; Extract &amp; add to table</button>
+                <button class="btn btn-outline"  id="clearBtn">&#128465;&#65039; Clear all</button>
             </div>
             <div class="stats" id="rowCountDisplay">0 rows</div>
         </div>
@@ -68,32 +68,31 @@
                 </tr>
             </thead>
             <tbody id="tableBody">
-                <tr class="empty-placeholder"><td colspan="7">📌 No data yet — paste a GLA member profile and click Extract</td></tr>
+                <tr class="empty-placeholder"><td colspan="7">No data yet — paste a GLA member profile and click Extract</td></tr>
             </tbody>
         </table>
     </div>
 
     <div class="footer">
-        <button class="export-btn" id="exportBtn">⬇️ Download Excel file (.xlsx)</button>
+        <button class="export-btn" id="exportBtn">&#11015;&#65039; Download Excel (.xlsx)</button>
     </div>
 </div>
 
 <script>
 (function () {
 
-    /* ── data store ─────────────────────────────────────────────────────────── */
-    let allGroups = []; // [{ sno, company, country, glaId, contacts:[{name,email,contact}] }]
+    var allGroups = [];
 
-    const inputEl      = document.getElementById('inputText');
-    const tbody        = document.getElementById('tableBody');
-    const rowCountSpan = document.getElementById('rowCountDisplay');
+    var inputEl      = document.getElementById('inputText');
+    var tbody        = document.getElementById('tableBody');
+    var rowCountSpan = document.getElementById('rowCountDisplay');
 
-    /* ── city / district names that can appear right after a country name ───── */
-    // "Bangladesh Uttara" → "Bangladesh"   "Bangladesh Dhaka" → "Bangladesh"
-    const CITIES = [
+    /* ── City names that can appear appended after country ───────────────────── */
+    var CITIES = [
         'dhaka','uttara','chittagong','sylhet','khulna','rajshahi','barishal',
         'mymensingh','narsingdi','gazipur','comilla','narayanganj','tangail','bogura',
         'kabul','herat','mazar','tirana','durres',
+        'antwerp','brussels','ghent','bruges','liege',
         'dubai','abu dhabi','sharjah','ajman',
         'istanbul','ankara','izmir',
         'beijing','shanghai','guangzhou','shenzhen','tianjin',
@@ -104,157 +103,182 @@
         'jakarta','surabaya','manila','cebu',
         'seoul','busan','tokyo','osaka',
         'nairobi','lagos','accra','cairo','casablanca','johannesburg','cape town',
-        'london','manchester','paris','berlin','madrid','rome','amsterdam',
-        'brussels','vienna','zurich','moscow','kyiv','warsaw','prague',
+        'london','manchester','birmingham','glasgow','liverpool',
+        'berlin','madrid','rome','amsterdam','rotterdam','barcelona','paris',
+        'vienna','zurich','moscow','kyiv','warsaw','prague',
         'budapest','bucharest','sofia','athens','lisbon','stockholm',
         'oslo','helsinki','copenhagen',
         'new york','los angeles','chicago','houston','miami',
         'toronto','montreal','vancouver',
         'sydney','melbourne','brisbane','auckland','wellington'
     ];
-    const CITY_RE = new RegExp('\\b(' + CITIES.join('|') + ')\\b', 'gi');
-
+    var CITY_RE = new RegExp('\\b(' + CITIES.join('|') + ')\\b', 'gi');
     function cleanCountry(raw) {
-        return (raw || '')
-            .replace(CITY_RE, '')
-            .replace(/\s+/g, ' ')
-            .trim();
+        return (raw || '').replace(CITY_RE, '').replace(/\s+/g, ' ').trim();
     }
 
-    /* ── nav / footer noise lines ───────────────────────────────────────────── */
-    const NOISE = /^(home|company|case study|company news|media center|contact us|about|about gla family|gla benefit|resource center|carrier schedules|privacy policy|help|members|register|sign in|member center|gla terms and conditions|gla member qualification|site map|blacklist|service|benefit|case display|financial supports|advisor services|gla conference|advertising services|links|we value your privacy|accept|copyright|info@glafamily|global logistics alliance\.|gla co\.?,?\s*ltd\.?|official paypal|captcha|leave a message|leave message here|regarding|select|e-commerce|project|warehouse|certifications|conference attendance history|industry sector|general service|sea freight|air freight|road transportation|custom clearance|speciality|project cargo|company introduction|company service|basic information|logistics|name\*:|email\*:|phone\*:|captcha\*:|\d+\s*gla coins|\d{4}-\d{2}-\d{2}\s*——)$/i;
+    /* ── Nav/footer noise lines ──────────────────────────────────────────────── */
+    var NOISE = /^(home|company|case study|company news|media center|contact us|about|about gla family|gla benefit|resource center|carrier schedules|privacy policy|help|members|register|sign in|member center|gla terms and conditions|gla member qualification|site map|blacklist|service|benefit|case display|financial supports|advisor services|gla conference|advertising services|links|we value your privacy|accept|copyright|info@glafamily|global logistics alliance\.|gla co\.?,?\s*ltd\.?|official paypal|captcha|leave a message|leave message here|regarding|select|e-commerce|project|warehouse|certifications|conference attendance history|industry sector|general service|sea freight|air freight|road transportation|custom clearance|speciality|project cargo|company introduction|company service|basic information|logistics|name\*:|email\*:|phone\*:|captcha\*:|\d+\s*gla coins|\d{4}-\d{2}-\d{2}\s*——)$/i;
 
-    /* ── role header lines that begin a contact block ───────────────────────── */
-    const ROLE = /^(ceo|general manager|contact for enquiry|second contact for inquiry|second contact|sr\.?\s*manager|ast\.?\s*officer|officer|manager)$/i;
+    /* ── Known role titles ───────────────────────────────────────────────────── */
+    var KNOWN_ROLE = /^(ceo|chief executive|general manager|contact for enquiry|second contact for inquiry|second contact|sr\.?\s*manager|ast\.?\s*officer|officer|manager|managing director|director|sales representative|sales manager|operations manager|branch manager|country manager|regional manager|account manager|freight manager|logistics manager|business development|bd manager|president|vice president|vp|chairman|proprietor|owner|partner|coordinator|executive|supervisor|representative|agent|staff|contact person|contact\s*\d*)$/i;
 
-    /* ═══════════════════════════════════════════════════════════════════════════
+    /* ── Lines that are definitely NOT role headers ──────────────────────────── */
+    var NOT_ROLE = /^(contact us|basic information|company service|company introduction|general service|conference attendance|about gla|home|members|service|help|links|captcha|regarding|select|leave message|privacy policy|site map|blacklist|carrier schedules|resource center|gla conference|advertising|financial supports|advisor services|case display|copyright|official paypal|we value your privacy|accept|e-commerce|project|warehouse|certifications|industry sector|sea freight|air freight|road transportation|custom clearance|speciality|project cargo|contact)$/i;
+
+    /*
+     * isRoleHeader — THE KEY FIX
+     * ---------------------------
+     * Old code used only KNOWN_ROLE, so "Managing Director", "Sales representative"
+     * and any other non-standard title was silently skipped.
+     *
+     * New logic: a line is a role header if
+     *   (a) it matches KNOWN_ROLE, OR
+     *   (b) the very next non-empty line starts with "Name:" — meaning ANY
+     *       custom title is captured automatically without pre-listing it.
+     */
+    function isRoleHeader(line, nextNonEmptyLine) {
+        if (!line || line.length < 2 || line.length > 65) return false;
+        if (NOT_ROLE.test(line))   return false;
+        if (NOISE.test(line))      return false;
+        if (/^\d/.test(line))      return false;
+        if (/^(https?:|www\.|@|name\s*:|email\s*:|direct\s*phone|mobile\s*:|whatsapp\s*:|phone\s*:|tel\s*:|address|country|website|office\s*(tel|email)|linkedin|——)/i.test(line)) return false;
+        if (KNOWN_ROLE.test(line)) return true;
+        if (nextNonEmptyLine && /^name\s*:/i.test(nextNonEmptyLine.trim())) return true;
+        return false;
+    }
+
+    /* ══════════════════════════════════════════════════════════
        MAIN EXTRACTOR
-    ═══════════════════════════════════════════════════════════════════════════ */
+    ══════════════════════════════════════════════════════════ */
     function extractGroup(text) {
         if (!text || text.trim().length < 30) return null;
 
-        /* 1 ── Normalise + strip conference / footer content ─────────────────── */
-        let t = text.replace(/\r\n?/g, '\n');
+        /* 1 — normalise, strip footer */
+        var t = text.replace(/\r\n?/g, '\n');
         t = t.replace(/Conference Attendance History[\s\S]*/i, '');
         t = t.replace(/\nAbout\s*\nAbout GLA[\s\S]*/i, '');
         t = t.replace(/GLA Co\.?,?\s*Ltd\.?[\s\S]*/i, '');
         t = t.replace(/Copyright[\s\S]*/i, '');
 
-        /* 2 ── GLA ID — scan the WHOLE remaining text ─────────────────────────
-           Format in real data:  "Membership No. : 235826"
-           Regex: optional spaces around colon, number 4-7 digits              */
-        let glaId = '';
-        const idM = t.match(/membership\s*no\.?\s*:?\s*(\d{4,7})/i)
-                 || t.match(/GLA\s*ID\s*:?\s*(\d{4,7})/i);
+        /* 2 — GLA ID */
+        var glaId = '';
+        var idM = t.match(/membership\s*no\.?\s*:?\s*(\d{4,7})/i) || t.match(/GLA\s*ID\s*:?\s*(\d{4,7})/i);
         if (idM) glaId = idM[1].trim();
 
-        /* 3 ── Split at the LAST "Contact Us" ──────────────────────────────────
-           Nav bar also has a "Contact Us" link, so take the final occurrence.
-           Everything before = metadata (company name, country, membership).
-           Everything after  = contact person blocks (CEO, GM, etc.)           */
-        let cuIdx = -1;
-        const cuRe = /^Contact Us\s*$/gim;
-        let cuM;
+        /* 3 — split at LAST "Contact Us" */
+        var cuIdx = -1;
+        var cuRe = /^Contact Us\s*$/gim;
+        var cuM;
         while ((cuM = cuRe.exec(t)) !== null) cuIdx = cuM.index;
+        var metaZone = cuIdx >= 0 ? t.slice(0, cuIdx) : t;
+        var bodyZone = cuIdx >= 0 ? t.slice(cuIdx)    : t;
 
-        const metaZone = cuIdx >= 0 ? t.slice(0, cuIdx) : t;
-        const bodyZone = cuIdx >= 0 ? t.slice(cuIdx)    : t;
-
-        /* 4 ── Country ─────────────────────────────────────────────────────────
-           GLA format has the value on the NEXT line after "Country:"
-              " Country:\n Bangladesh Dhaka\n"
-           We also try inline just in case.                                    */
-        let country = '';
-        const ctryM =
-            // value on next line (most common in GLA pages)
-            (metaZone + '\n' + bodyZone).match(/\bcountry\s*:\s*\n\s*([A-Za-z][A-Za-z ]{2,40}?)(?:\n|$)/i)
-            // inline fallback
-         || t.match(/\bcountry\s*:?\s+([A-Za-z][A-Za-z ]{2,40}?)(?:\n|$)/i);
+        /* 4 — country */
+        var country = '';
+        var ctryM = (metaZone + '\n' + bodyZone).match(/\bcountry\s*:\s*\n\s*([A-Za-z][A-Za-z ]{2,40}?)(?:\n|$)/i)
+                 || t.match(/\bcountry\s*:?\s+([A-Za-z][A-Za-z ]{2,40}?)(?:\n|$)/i);
         if (ctryM) country = cleanCountry(ctryM[1]);
 
-        /* 5 ── Company name ────────────────────────────────────────────────────
-           Search metaZone + body preamble (before first role header).
-           Two passes: (a) line with company keyword, (b) first sensible line. */
-        const bodyPre   = bodyZone.split(new RegExp(ROLE.source, 'im'))[0] || '';
-        const nameZone  = metaZone + '\n' + bodyPre;
-        const nameLines = nameZone.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+        /* 5 — company name */
+        var bodyLines = bodyZone.split('\n');
 
-        let company = '';
+        // find first role header index in body
+        var firstRoleIdx = bodyLines.length;
+        for (var idx = 0; idx < bodyLines.length; idx++) {
+            var bl = bodyLines[idx].trim();
+            var nextBl = '';
+            for (var ni = idx + 1; ni < bodyLines.length; ni++) {
+                if (bodyLines[ni].trim().length > 0) { nextBl = bodyLines[ni]; break; }
+            }
+            if (isRoleHeader(bl, nextBl)) { firstRoleIdx = idx; break; }
+        }
 
-        // pass 1 – look for a line with a company-type keyword
-        for (const l of nameLines) {
-            if (NOISE.test(l))                        continue;
-            if (/membership\s*no/i.test(l))           continue;
-            if (/^\d/.test(l))                        continue;
-            if (/^(contact$|http|www\.|@|——|—)/i.test(l)) continue;
-            if (l.length < 3 || l.length > 140)       continue;
-            if (/(limited|ltd|inc|corp|logistics|freight|forwarding|transit|transport|llc|co\.|s\.a\.|gmbh|shpk|agency|services|solutions|group|express|cargo|aether)/i.test(l)) {
+        var nameZone  = metaZone + '\n' + bodyLines.slice(0, firstRoleIdx).join('\n');
+        var nameLines = nameZone.split('\n').map(function(l){ return l.trim(); }).filter(function(l){ return l.length > 0; });
+
+        var company = '';
+        // pass 1 — company keyword
+        for (var li = 0; li < nameLines.length; li++) {
+            var l = nameLines[li];
+            if (NOISE.test(l)) continue;
+            if (/membership\s*no/i.test(l)) continue;
+            if (/^\d/.test(l)) continue;
+            if (/^(contact$|https?:|www\.|@|——|—)/i.test(l)) continue;
+            if (l.length < 3 || l.length > 140) continue;
+            if (/(limited|ltd|nv|bv|inc|corp|logistics|freight|shipping|maritime|forwarding|transit|transport|llc|co\.|s\.a\.|gmbh|shpk|agency|services|solutions|group|express|cargo|aether)/i.test(l)) {
                 company = l; break;
             }
         }
-        // pass 2 – first non-noise, non-numeric, non-url line
+        // pass 2 — first sensible line
         if (!company) {
-            for (const l of nameLines) {
-                if (NOISE.test(l))                    continue;
-                if (/membership\s*no/i.test(l))       continue;
-                if (/^\d/.test(l))                    continue;
-                if (/^(contact$|http|www\.|@|——|country|address|date of|number of|website|office|linkedin)/i.test(l)) continue;
-                if (l.length >= 3 && l.length <= 140) { company = l; break; }
+            for (var li2 = 0; li2 < nameLines.length; li2++) {
+                var l2 = nameLines[li2];
+                if (NOISE.test(l2)) continue;
+                if (/membership\s*no/i.test(l2)) continue;
+                if (/^\d/.test(l2)) continue;
+                if (/^(contact$|https?:|www\.|@|——|country|address|date of|number of|website|office|linkedin)/i.test(l2)) continue;
+                if (l2.length >= 3 && l2.length <= 140) { company = l2; break; }
             }
         }
 
-        /* 6 ── Parse individual contact blocks ─────────────────────────────────
-           Each block starts with a ROLE header line (CEO, General Manager, …)  */
-        const contacts = [];
-        const bodyLines = bodyZone.split('\n');
-        let i = 0;
+        /* 6 — parse contact blocks */
+        var contacts = [];
+        var i = 0;
         while (i < bodyLines.length) {
-            const line = bodyLines[i].trim();
-            if (ROLE.test(line)) {
-                // collect lines until the next role header (max 30 lines)
-                const blockArr = [line];
-                let j = i + 1;
+            var line = bodyLines[i].trim();
+            var nextLine = '';
+            for (var ni2 = i + 1; ni2 < bodyLines.length; ni2++) {
+                if (bodyLines[ni2].trim().length > 0) { nextLine = bodyLines[ni2]; break; }
+            }
+
+            if (isRoleHeader(line, nextLine)) {
+                var blockArr = [line];
+                var j = i + 1;
                 while (j < bodyLines.length && j - i < 30) {
-                    if (ROLE.test(bodyLines[j].trim())) break;
+                    var cur = bodyLines[j].trim();
+                    var nextCur = '';
+                    for (var ni3 = j + 1; ni3 < bodyLines.length; ni3++) {
+                        if (bodyLines[ni3].trim().length > 0) { nextCur = bodyLines[ni3]; break; }
+                    }
+                    if (isRoleHeader(cur, nextCur)) break;
                     blockArr.push(bodyLines[j]);
                     j++;
                 }
-                const block = blockArr.join('\n');
+                var block = blockArr.join('\n');
 
-                // Name
-                const nameM = block.match(/\bname\s*:?\s*([A-Za-z][A-Za-z\s.''\-]{1,60}?)(?:\n|$)/i);
+                // name
+                var nameM = block.match(/\bname\s*:?\s*([A-Za-z][A-Za-z\s.''""\-]{1,60}?)(?:\n|$)/i);
                 if (nameM) {
-                    const name = nameM[1].trim().replace(/\s+/g, ' ');
-                    if (name.length >= 2 && !name.includes('@')) {
+                    var name = nameM[1].trim().replace(/\s+/g, ' ');
+                    if (name.length >= 2 && name.indexOf('@') === -1) {
 
-                        // Email — treat "-" / "—" as empty
-                        let email = '';
-                        const emailM = block.match(/\bemail\s*:?\s*(.+?)(?:\n|$)/i);
+                        // email
+                        var email = '';
+                        var emailM = block.match(/\bemail\s*:?\s*(.+?)(?:\n|$)/i);
                         if (emailM) {
-                            const v = emailM[1].trim();
-                            if (v !== '-' && v !== '—' && v !== '' && v.includes('@'))
-                                email = v.toLowerCase();
+                            var ev = emailM[1].trim();
+                            if (ev !== '-' && ev !== '\u2014' && ev !== '' && ev.indexOf('@') !== -1)
+                                email = ev.toLowerCase();
                         }
 
-                        // Phone — Direct phone → Mobile → WhatsApp; skip "-" / "—" / empty
-                        let phone = '';
-                        const phonePats = [
+                        // phone
+                        var phone = '';
+                        var phonePats = [
                             /direct\s*phone\s*:?\s*(.+?)(?:\n|$)/i,
                             /mobile\s*:?\s*(.+?)(?:\n|$)/i,
                             /whatsapp\s*:?\s*(.+?)(?:\n|$)/i,
-                            /(?:^|\n)\s*(?:phone|tel)\s*:?\s*(.+?)(?:\n|$)/i,
+                            /(?:^|\n)\s*(?:phone|tel)\s*:?\s*(.+?)(?:\n|$)/i
                         ];
-                        for (const pat of phonePats) {
-                            const m = block.match(pat);
-                            if (m) {
-                                const v = m[1].trim();
-                                if (v && v !== '-' && v !== '—' && /\d/.test(v)) {
-                                    phone = v; break;
-                                }
+                        for (var pi = 0; pi < phonePats.length; pi++) {
+                            var pm = block.match(phonePats[pi]);
+                            if (pm) {
+                                var pv = pm[1].trim();
+                                if (pv && pv !== '-' && pv !== '\u2014' && /\d/.test(pv)) { phone = pv; break; }
                             }
                         }
 
-                        contacts.push({ name, email, contact: phone });
+                        contacts.push({ name: name, email: email, contact: phone });
                     }
                 }
                 i = j;
@@ -264,53 +288,52 @@
         }
 
         if (contacts.length === 0) return null;
-
-        return { sno: 0, company: company || '?', country, glaId, contacts };
+        return { sno: 0, company: company || '?', country: country, glaId: glaId, contacts: contacts };
     }
 
-    /* ═══════════════════════════════════════════════════════════════════════════
+    /* ══════════════════════════════════════════════════════════
        RENDER TABLE
-    ═══════════════════════════════════════════════════════════════════════════ */
+    ══════════════════════════════════════════════════════════ */
     function render() {
-        const total = allGroups.reduce((s, g) => s + g.contacts.length, 0);
+        var total = allGroups.reduce(function(s, g) { return s + g.contacts.length; }, 0);
         if (total === 0) {
-            tbody.innerHTML = `<tr class="empty-placeholder"><td colspan="7">📌 No data yet — paste a GLA member profile and click Extract</td></tr>`;
+            tbody.innerHTML = '<tr class="empty-placeholder"><td colspan="7">No data yet \u2014 paste a GLA member profile and click Extract</td></tr>';
             rowCountSpan.innerText = '0 rows';
             return;
         }
-        const esc = s => String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-        let html = '';
-        allGroups.forEach(g => {
-            g.contacts.forEach((c, ci) => {
-                html += `<tr>
-                    <td>${ci===0 ? esc(g.sno)     : ''}</td>
-                    <td>${ci===0 ? esc(g.company)  : ''}</td>
-                    <td>${esc(c.name)}</td>
-                    <td>${esc(c.email)}</td>
-                    <td>${esc(c.contact)}</td>
-                    <td>${ci===0 ? esc(g.country)  : ''}</td>
-                    <td>${ci===0 ? esc(g.glaId)    : ''}</td>
-                </tr>`;
+        function esc(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+        var html = '';
+        allGroups.forEach(function(g) {
+            g.contacts.forEach(function(c, ci) {
+                html += '<tr>'
+                    + '<td>' + (ci===0 ? esc(g.sno)     : '') + '</td>'
+                    + '<td>' + (ci===0 ? esc(g.company)  : '') + '</td>'
+                    + '<td>' + esc(c.name)    + '</td>'
+                    + '<td>' + esc(c.email)   + '</td>'
+                    + '<td>' + esc(c.contact) + '</td>'
+                    + '<td>' + (ci===0 ? esc(g.country)  : '') + '</td>'
+                    + '<td>' + (ci===0 ? esc(g.glaId)    : '') + '</td>'
+                    + '</tr>';
             });
         });
         tbody.innerHTML = html;
-        rowCountSpan.innerText = `${total} row${total !== 1 ? 's' : ''}`;
+        rowCountSpan.innerText = total + ' row' + (total !== 1 ? 's' : '');
     }
 
-    /* ═══════════════════════════════════════════════════════════════════════════
+    /* ══════════════════════════════════════════════════════════
        BUTTON ACTIONS
-    ═══════════════════════════════════════════════════════════════════════════ */
+    ══════════════════════════════════════════════════════════ */
     function addFromPaste() {
-        const paste = inputEl.value;
+        var paste = inputEl.value;
         if (!paste.trim()) { alert('Please paste some text first.'); return; }
-        const g = extractGroup(paste);
+        var g = extractGroup(paste);
         if (g) {
             allGroups.push(g);
-            allGroups.forEach((grp, i) => { grp.sno = i + 1; });
+            allGroups.forEach(function(grp, idx) { grp.sno = idx + 1; });
             render();
             inputEl.value = '';
         } else {
-            alert('Could not extract data.\nMake sure the pasted text includes the "Contact Us" section with CEO / Manager details.');
+            alert('Could not extract data.\nMake sure the pasted text includes the "Contact Us" section with contact person details.');
         }
     }
 
@@ -321,113 +344,101 @@
         }
     }
 
-    /* ═══════════════════════════════════════════════════════════════════════════
-       EXCEL EXPORT — exact GLA Agent List format
-       Row 1 : Title   A1:G1 merged  bg #A1BFCC  bold 12pt  centred
-       Row 2 : Headers               bg #CEEBF6  bold 12pt  thin borders
-       Data  : S No / Company / Country / GLA ID merged per company group
-    ═══════════════════════════════════════════════════════════════════════════ */
+    /* ══════════════════════════════════════════════════════════
+       EXCEL EXPORT  — exact GLA Agent List format
+       Row 1  title  A1:G1 merged  bg #A1BFCC  bold 12pt
+       Row 2  headers              bg #CEEBF6  bold 12pt  thin borders
+       Data   S No / Company / Country / GLA ID merged per company
+    ══════════════════════════════════════════════════════════ */
     function exportExcel() {
         if (allGroups.length === 0) { alert('No data to export.'); return; }
 
-        const wb = XLSX.utils.book_new();
-        const ws = {};
+        var wb = XLSX.utils.book_new();
+        var ws = {};
+        var thin = { style: 'thin', color: { rgb: '000000' } };
+        var bdr  = { top: thin, bottom: thin, left: thin, right: thin };
 
-        const thin  = { style: 'thin', color: { rgb: '000000' } };
-        const bdr   = { top: thin, bottom: thin, left: thin, right: thin };
-
-        const titleSt = {
+        var titleSt = {
             font:      { bold: true, sz: 12, name: 'Aptos Display', color: { rgb: '000000' } },
             fill:      { fgColor: { rgb: 'A1BFCC' }, patternType: 'solid' },
             alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
             border: bdr
         };
-        const hdrSt = {
+        var hdrSt = {
             font:      { bold: true, sz: 12, name: 'Aptos Display', color: { rgb: '000000' } },
             fill:      { fgColor: { rgb: 'CEEBF6' }, patternType: 'solid' },
             alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
             border: bdr
         };
-        const dataSt = {
+        var dataSt = {
             font:      { sz: 11, name: 'Aptos Display', color: { rgb: '000000' } },
             alignment: { vertical: 'center', wrapText: true },
             border: bdr
         };
-        const ctrSt = {
+        var ctrSt = {
             font:      { sz: 11, name: 'Aptos Display', color: { rgb: '000000' } },
             alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
             border: bdr
         };
 
-        const mk = (v, s, t) => ({ v, s, t: t || (typeof v === 'number' ? 'n' : 's') });
+        function mk(v, s, t) { return { v: v, s: s, t: t || (typeof v === 'number' ? 'n' : 's') }; }
 
-        // Row 1 — title (merged A1:G1)
-        ['A','B','C','D','E','F','G'].forEach(c => { ws[`${c}1`] = mk('', titleSt); });
+        // Row 1 — title
+        ['A','B','C','D','E','F','G'].forEach(function(c) { ws[c+'1'] = mk('', titleSt); });
         ws['A1'] = mk('GLA Network Agent List - Feb 2026', titleSt);
 
-        // Row 2 — column headers
-        const HDRS = ['S No','Company Name','Agent Name','Email','Contact','Country','GLA ID'];
-        ['A','B','C','D','E','F','G'].forEach((c, i) => { ws[`${c}2`] = mk(HDRS[i], hdrSt); });
+        // Row 2 — headers
+        var HDRS = ['S No','Company Name','Agent Name','Email','Contact','Country','GLA ID'];
+        ['A','B','C','D','E','F','G'].forEach(function(c, i) { ws[c+'2'] = mk(HDRS[i], hdrSt); });
 
-        // Data rows
-        const merges = [{ s:{r:0,c:0}, e:{r:0,c:6} }]; // title
-        let row = 3;
+        var merges = [{ s:{r:0,c:0}, e:{r:0,c:6} }];
+        var row = 3;
 
-        allGroups.forEach(g => {
-            const startRow = row;
-            g.contacts.forEach((c, ci) => {
+        allGroups.forEach(function(g) {
+            var startRow = row;
+            g.contacts.forEach(function(c, ci) {
                 if (ci === 0) {
-                    ws[`A${row}`] = mk(g.sno,                     ctrSt,  'n');
-                    ws[`B${row}`] = mk(g.company,                 dataSt);
-                    ws[`F${row}`] = mk(g.country,                 dataSt);
-                    ws[`G${row}`] = mk(g.glaId ? +g.glaId : '',   ctrSt,  g.glaId ? 'n' : 's');
+                    ws['A'+row] = mk(g.sno,                   ctrSt,  'n');
+                    ws['B'+row] = mk(g.company,               dataSt);
+                    ws['F'+row] = mk(g.country || '',         dataSt);
+                    ws['G'+row] = mk(g.glaId ? +g.glaId : '', ctrSt, g.glaId ? 'n' : 's');
                 } else {
-                    ws[`A${row}`] = mk('', ctrSt);
-                    ws[`B${row}`] = mk('', dataSt);
-                    ws[`F${row}`] = mk('', dataSt);
-                    ws[`G${row}`] = mk('', ctrSt);
+                    ws['A'+row] = mk('', ctrSt);
+                    ws['B'+row] = mk('', dataSt);
+                    ws['F'+row] = mk('', dataSt);
+                    ws['G'+row] = mk('', ctrSt);
                 }
-                ws[`C${row}`] = mk(c.name,    dataSt);
-                ws[`D${row}`] = mk(c.email,   dataSt);
-                ws[`E${row}`] = mk(c.contact, dataSt);
+                ws['C'+row] = mk(c.name,    dataSt);
+                ws['D'+row] = mk(c.email,   dataSt);
+                ws['E'+row] = mk(c.contact, dataSt);
                 row++;
             });
-
-            const endRow = row - 1;
+            var endRow = row - 1;
             if (endRow > startRow) {
-                const sr = startRow - 1, er = endRow - 1;
-                merges.push({ s:{r:sr,c:0}, e:{r:er,c:0} }); // S No
-                merges.push({ s:{r:sr,c:1}, e:{r:er,c:1} }); // Company
-                merges.push({ s:{r:sr,c:5}, e:{r:er,c:5} }); // Country
-                merges.push({ s:{r:sr,c:6}, e:{r:er,c:6} }); // GLA ID
+                var sr = startRow - 1, er = endRow - 1;
+                merges.push({s:{r:sr,c:0},e:{r:er,c:0}});
+                merges.push({s:{r:sr,c:1},e:{r:er,c:1}});
+                merges.push({s:{r:sr,c:5},e:{r:er,c:5}});
+                merges.push({s:{r:sr,c:6},e:{r:er,c:6}});
             }
         });
 
-        ws['!ref']    = `A1:G${row - 1}`;
+        ws['!ref']    = 'A1:G' + (row - 1);
         ws['!merges'] = merges;
-        ws['!cols']   = [
-            { wpx:  38 }, // A  S No
-            { wpx: 320 }, // B  Company Name
-            { wpx: 140 }, // C  Agent Name
-            { wpx: 235 }, // D  Email
-            { wpx: 200 }, // E  Contact
-            { wpx:  90 }, // F  Country
-            { wpx:  80 }, // G  GLA ID
-        ];
-        ws['!rows'] = [{ hpx: 26 }, { hpx: 20 }];
-        for (let r = 3; r < row; r++) ws['!rows'].push({ hpx: 16 });
+        ws['!cols']   = [{wpx:38},{wpx:320},{wpx:140},{wpx:235},{wpx:200},{wpx:90},{wpx:80}];
+        ws['!rows'] = [{hpx:26},{hpx:20}];
+        for (var r = 3; r < row; r++) ws['!rows'].push({hpx:16});
 
         XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
-
-        const today = new Date().toISOString().slice(0, 10);
-        XLSX.writeFile(wb, `GLA_Agent_List_${today}.xlsx`, { bookType: 'xlsx', cellStyles: true });
+        var today = new Date().toISOString().slice(0, 10);
+        XLSX.writeFile(wb, 'GLA_Agent_List_' + today + '.xlsx', { bookType: 'xlsx', cellStyles: true });
     }
 
-    /* ── bindings ───────────────────────────────────────────────────────────── */
+    /* ── bindings ───────────────────────────────────────────── */
     document.getElementById('extractBtn').addEventListener('click', addFromPaste);
     document.getElementById('clearBtn').addEventListener('click', clearAll);
     document.getElementById('exportBtn').addEventListener('click', exportExcel);
-    inputEl.addEventListener('keydown', e => {
+    inputEl.addEventListener('keydown', function(e) {
         if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); addFromPaste(); }
     });
 
