@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GLA member contact extractor · CEO & managers</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        * { box-sizing: border-box; font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+        body { background: #f2f5fa; margin: 0; min-height: 100vh; display: flex; justify-content: center; align-items: center; padding: 20px; }
+        .app-container { width: 100%; max-width: 1600px; background: white; border-radius: 32px; box-shadow: 0 30px 60px -20px rgba(0,20,50,0.3); overflow: hidden; }
+        .app-header { background: #082338; color: white; padding: 24px 36px; }
+        .app-header h1 { margin: 0; font-weight: 600; font-size: 2rem; letter-spacing: -0.3px; display: flex; align-items: center; gap: 12px; }
+        .app-header h1 small { font-size: 0.9rem; background: #2f4b70; padding: 4px 16px; border-radius: 30px; font-weight: 400; }
+        .app-header p { margin: 8px 0 0; opacity: 0.8; font-size: 1rem; }
+        .paste-panel { padding: 28px 36px 12px 36px; }
+        textarea { width: 100%; padding: 22px; border: 2px solid #dde3ed; border-radius: 24px; font-size: 0.95rem; line-height: 1.6; background: #f9fcff; resize: vertical; font-family: 'SF Mono', 'JetBrains Mono', monospace; transition: 0.2s; }
+        textarea:focus { border-color: #0a2f4d; outline: none; background: #ffffff; box-shadow: 0 6px 14px rgba(2,30,65,0.1); }
+        .toolbar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; margin: 20px 0 12px; }
+        .btn-group { display: flex; gap: 12px; flex-wrap: wrap; }
+        .btn { background: white; border: 1px solid #b9cee8; padding: 10px 26px; border-radius: 40px; font-weight: 500; color: #1f3b5c; cursor: pointer; transition: 0.1s; display: inline-flex; align-items: center; gap: 8px; box-shadow: 0 3px 8px rgba(0,0,0,0.02); font-size: 0.9rem; }
+        .btn-primary { background: #0b2b4f; border-color: #0b2b4f; color: white; box-shadow: 0 8px 18px -6px #0b2b4f; }
+        .btn-primary:hover { background: #154a73; transform: scale(1.02); }
+        .btn-outline:hover { background: #eaf2fc; border-color: #2b4e77; }
+        .stats { background: #edf2f9; padding: 6px 20px; border-radius: 40px; font-size: 0.9rem; color: #082338; font-weight: 500; }
+        .table-wrapper { padding: 0 36px 30px 36px; overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; background: white; box-shadow: 0 5px 20px rgba(0,0,0,0.02); font-size: 0.8rem; }
+        th { background: #eef3fc; color: #0f2b4b; font-weight: 600; padding: 16px 8px; text-align: left; border-bottom: 2px solid #c7d6ec; white-space: nowrap; }
+        td { padding: 14px 8px; border-bottom: 1px solid #e1eaf3; vertical-align: top; word-break: break-word; }
+        tr:hover td { background: #f6faff; }
+        .empty-placeholder td { text-align: center; padding: 40px; color: #8aa0c0; font-style: italic; background: #f9fcff; }
+        .footer { padding: 18px 36px 32px 36px; display: flex; justify-content: flex-end; border-top: 1px solid #dde7f2; }
+        .export-btn { background: #16673e; border: 1px solid #0f5332; padding: 14px 40px; border-radius: 60px; color: white; font-weight: 600; font-size: 1.1rem; box-shadow: 0 10px 20px -5px #16673e80; cursor: pointer; transition: 0.15s; display: flex; align-items: center; gap: 10px; }
+        .export-btn:hover { background: #1c804b; transform: translateY(-2px); }
+        .note { font-size: 0.8rem; color: #4d627a; margin-left: 36px; margin-top: -10px; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+<div class="app-container">
+    <div class="app-header">
+        <h1>
+            📇 GLA contact extractor 
+        </h1>
+    </div>
+
+    <div class="paste-panel">
+        <textarea id="inputText" rows="7" placeholder="Paste the full GLA member page text here (including the Contact Us section)…"></textarea>
+        <div class="toolbar">
+            <div class="btn-group">
+                <button class="btn btn-primary" id="extractBtn">🔍 Extract &amp; add to table</button>
+                <button class="btn btn-outline" id="clearBtn">🗑️ Clear all</button>
+            </div>
+            <div class="stats" id="rowCountDisplay">0 rows</div>
+        </div>
+    </div>
+
+    <div class="table-wrapper">
+        <table id="dataTable">
+            <thead>
+                <tr>
+                    <th>S No</th>
+                    <th>Company Name</th>
+                    <th>Agent Name</th>
+                    <th>Email</th>
+                    <th>Contact</th>
+                    <th>Country</th>
+                    <th>GLA ID</th>
+                </tr>
+            </thead>
+            <tbody id="tableBody">
+                <tr class="empty-placeholder"><td colspan="7">📌 No data yet — paste a GLA member profile and click Extract</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="footer">
+        <button class="export-btn" id="exportBtn">⬇️ Download Excel file (.xlsx)</button>
+    </div>
+</div>
+
+<script>
+(function () {
+
+    /* ── data store ─────────────────────────────────────────────────────────── */
+    let allGroups = []; // [{ sno, company, country, glaId, contacts:[{name,email,contact}] }]
+
+    const inputEl      = document.getElementById('inputText');
+    const tbody        = document.getElementById('tableBody');
+    const rowCountSpan = document.getElementById('rowCountDisplay');
+
+    /* ── city / district names that can appear right after a country name ───── */
+    // "Bangladesh Uttara" → "Bangladesh"   "Bangladesh Dhaka" → "Bangladesh"
+    const CITIES = [
+        'dhaka','uttara','chittagong','sylhet','khulna','rajshahi','barishal',
+        'mymensingh','narsingdi','gazipur','comilla','narayanganj','tangail','bogura',
+        'kabul','herat','mazar','tirana','durres',
+        'dubai','abu dhabi','sharjah','ajman',
+        'istanbul','ankara','izmir',
+        'beijing','shanghai','guangzhou','shenzhen','tianjin',
+        'mumbai','delhi','bangalore','chennai','kolkata','hyderabad',
+        'karachi','lahore','islamabad',
+        'colombo','negombo','kathmandu','pokhara','yangon','mandalay',
+        'bangkok','phuket','kuala lumpur','penang','singapore',
+        'jakarta','surabaya','manila','cebu',
+        'seoul','busan','tokyo','osaka',
+        'nairobi','lagos','accra','cairo','casablanca','johannesburg','cape town',
+        'london','manchester','paris','berlin','madrid','rome','amsterdam',
+        'brussels','vienna','zurich','moscow','kyiv','warsaw','prague',
+        'budapest','bucharest','sofia','athens','lisbon','stockholm',
+        'oslo','helsinki','copenhagen',
+        'new york','los angeles','chicago','houston','miami',
+        'toronto','montreal','vancouver',
+        'sydney','melbourne','brisbane','auckland','wellington'
+    ];
+    const CITY_RE = new RegExp('\\b(' + CITIES.join('|') + ')\\b', 'gi');
+
+    function cleanCountry(raw) {
+        return (raw || '')
+            .replace(CITY_RE, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
+
+    /* ── nav / footer noise lines ───────────────────────────────────────────── */
+    const NOISE = /^(home|company|case study|company news|media center|contact us|about|about gla family|gla benefit|resource center|carrier schedules|privacy policy|help|members|register|sign in|member center|gla terms and conditions|gla member qualification|site map|blacklist|service|benefit|case display|financial supports|advisor services|gla conference|advertising services|links|we value your privacy|accept|copyright|info@glafamily|global logistics alliance\.|gla co\.?,?\s*ltd\.?|official paypal|captcha|leave a message|leave message here|regarding|select|e-commerce|project|warehouse|certifications|conference attendance history|industry sector|general service|sea freight|air freight|road transportation|custom clearance|speciality|project cargo|company introduction|company service|basic information|logistics|name\*:|email\*:|phone\*:|captcha\*:|\d+\s*gla coins|\d{4}-\d{2}-\d{2}\s*——)$/i;
+
+    /* ── role header lines that begin a contact block ───────────────────────── */
+    const ROLE = /^(ceo|general manager|contact for enquiry|second contact for inquiry|second contact|sr\.?\s*manager|ast\.?\s*officer|officer|manager)$/i;
+
+    /* ═══════════════════════════════════════════════════════════════════════════
+       MAIN EXTRACTOR
+    ═══════════════════════════════════════════════════════════════════════════ */
+    function extractGroup(text) {
+        if (!text || text.trim().length < 30) return null;
+
+        /* 1 ── Normalise + strip conference / footer content ─────────────────── */
+        let t = text.replace(/\r\n?/g, '\n');
+        t = t.replace(/Conference Attendance History[\s\S]*/i, '');
+        t = t.replace(/\nAbout\s*\nAbout GLA[\s\S]*/i, '');
+        t = t.replace(/GLA Co\.?,?\s*Ltd\.?[\s\S]*/i, '');
+        t = t.replace(/Copyright[\s\S]*/i, '');
+
+        /* 2 ── GLA ID — scan the WHOLE remaining text ─────────────────────────
+           Format in real data:  "Membership No. : 235826"
+           Regex: optional spaces around colon, number 4-7 digits              */
+        let glaId = '';
+        const idM = t.match(/membership\s*no\.?\s*:?\s*(\d{4,7})/i)
+                 || t.match(/GLA\s*ID\s*:?\s*(\d{4,7})/i);
+        if (idM) glaId = idM[1].trim();
+
+        /* 3 ── Split at the LAST "Contact Us" ──────────────────────────────────
+           Nav bar also has a "Contact Us" link, so take the final occurrence.
+           Everything before = metadata (company name, country, membership).
+           Everything after  = contact person blocks (CEO, GM, etc.)           */
+        let cuIdx = -1;
+        const cuRe = /^Contact Us\s*$/gim;
+        let cuM;
+        while ((cuM = cuRe.exec(t)) !== null) cuIdx = cuM.index;
+
+        const metaZone = cuIdx >= 0 ? t.slice(0, cuIdx) : t;
+        const bodyZone = cuIdx >= 0 ? t.slice(cuIdx)    : t;
+
+        /* 4 ── Country ─────────────────────────────────────────────────────────
+           GLA format has the value on the NEXT line after "Country:"
+              " Country:\n Bangladesh Dhaka\n"
+           We also try inline just in case.                                    */
+        let country = '';
+        const ctryM =
+            // value on next line (most common in GLA pages)
+            (metaZone + '\n' + bodyZone).match(/\bcountry\s*:\s*\n\s*([A-Za-z][A-Za-z ]{2,40}?)(?:\n|$)/i)
+            // inline fallback
+         || t.match(/\bcountry\s*:?\s+([A-Za-z][A-Za-z ]{2,40}?)(?:\n|$)/i);
+        if (ctryM) country = cleanCountry(ctryM[1]);
+
+        /* 5 ── Company name ────────────────────────────────────────────────────
+           Search metaZone + body preamble (before first role header).
+           Two passes: (a) line with company keyword, (b) first sensible line. */
+        const bodyPre   = bodyZone.split(new RegExp(ROLE.source, 'im'))[0] || '';
+        const nameZone  = metaZone + '\n' + bodyPre;
+        const nameLines = nameZone.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+
+        let company = '';
+
+        // pass 1 – look for a line with a company-type keyword
+        for (const l of nameLines) {
+            if (NOISE.test(l))                        continue;
+            if (/membership\s*no/i.test(l))           continue;
+            if (/^\d/.test(l))                        continue;
+            if (/^(contact$|http|www\.|@|——|—)/i.test(l)) continue;
+            if (l.length < 3 || l.length > 140)       continue;
+            if (/(limited|ltd|inc|corp|logistics|freight|forwarding|transit|transport|llc|co\.|s\.a\.|gmbh|shpk|agency|services|solutions|group|express|cargo|aether)/i.test(l)) {
+                company = l; break;
+            }
+        }
+        // pass 2 – first non-noise, non-numeric, non-url line
+        if (!company) {
+            for (const l of nameLines) {
+                if (NOISE.test(l))                    continue;
+                if (/membership\s*no/i.test(l))       continue;
+                if (/^\d/.test(l))                    continue;
+                if (/^(contact$|http|www\.|@|——|country|address|date of|number of|website|office|linkedin)/i.test(l)) continue;
+                if (l.length >= 3 && l.length <= 140) { company = l; break; }
+            }
+        }
+
+        /* 6 ── Parse individual contact blocks ─────────────────────────────────
+           Each block starts with a ROLE header line (CEO, General Manager, …)  */
+        const contacts = [];
+        const bodyLines = bodyZone.split('\n');
+        let i = 0;
+        while (i < bodyLines.length) {
+            const line = bodyLines[i].trim();
+            if (ROLE.test(line)) {
+                // collect lines until the next role header (max 30 lines)
+                const blockArr = [line];
+                let j = i + 1;
+                while (j < bodyLines.length && j - i < 30) {
+                    if (ROLE.test(bodyLines[j].trim())) break;
+                    blockArr.push(bodyLines[j]);
+                    j++;
+                }
+                const block = blockArr.join('\n');
+
+                // Name
+                const nameM = block.match(/\bname\s*:?\s*([A-Za-z][A-Za-z\s.''\-]{1,60}?)(?:\n|$)/i);
+                if (nameM) {
+                    const name = nameM[1].trim().replace(/\s+/g, ' ');
+                    if (name.length >= 2 && !name.includes('@')) {
+
+                        // Email — treat "-" / "—" as empty
+                        let email = '';
+                        const emailM = block.match(/\bemail\s*:?\s*(.+?)(?:\n|$)/i);
+                        if (emailM) {
+                            const v = emailM[1].trim();
+                            if (v !== '-' && v !== '—' && v !== '' && v.includes('@'))
+                                email = v.toLowerCase();
+                        }
+
+                        // Phone — Direct phone → Mobile → WhatsApp; skip "-" / "—" / empty
+                        let phone = '';
+                        const phonePats = [
+                            /direct\s*phone\s*:?\s*(.+?)(?:\n|$)/i,
+                            /mobile\s*:?\s*(.+?)(?:\n|$)/i,
+                            /whatsapp\s*:?\s*(.+?)(?:\n|$)/i,
+                            /(?:^|\n)\s*(?:phone|tel)\s*:?\s*(.+?)(?:\n|$)/i,
+                        ];
+                        for (const pat of phonePats) {
+                            const m = block.match(pat);
+                            if (m) {
+                                const v = m[1].trim();
+                                if (v && v !== '-' && v !== '—' && /\d/.test(v)) {
+                                    phone = v; break;
+                                }
+                            }
+                        }
+
+                        contacts.push({ name, email, contact: phone });
+                    }
+                }
+                i = j;
+            } else {
+                i++;
+            }
+        }
+
+        if (contacts.length === 0) return null;
+
+        return { sno: 0, company: company || '?', country, glaId, contacts };
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════════════
+       RENDER TABLE
+    ═══════════════════════════════════════════════════════════════════════════ */
+    function render() {
+        const total = allGroups.reduce((s, g) => s + g.contacts.length, 0);
+        if (total === 0) {
+            tbody.innerHTML = `<tr class="empty-placeholder"><td colspan="7">📌 No data yet — paste a GLA member profile and click Extract</td></tr>`;
+            rowCountSpan.innerText = '0 rows';
+            return;
+        }
+        const esc = s => String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        let html = '';
+        allGroups.forEach(g => {
+            g.contacts.forEach((c, ci) => {
+                html += `<tr>
+                    <td>${ci===0 ? esc(g.sno)     : ''}</td>
+                    <td>${ci===0 ? esc(g.company)  : ''}</td>
+                    <td>${esc(c.name)}</td>
+                    <td>${esc(c.email)}</td>
+                    <td>${esc(c.contact)}</td>
+                    <td>${ci===0 ? esc(g.country)  : ''}</td>
+                    <td>${ci===0 ? esc(g.glaId)    : ''}</td>
+                </tr>`;
+            });
+        });
+        tbody.innerHTML = html;
+        rowCountSpan.innerText = `${total} row${total !== 1 ? 's' : ''}`;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════════════
+       BUTTON ACTIONS
+    ═══════════════════════════════════════════════════════════════════════════ */
+    function addFromPaste() {
+        const paste = inputEl.value;
+        if (!paste.trim()) { alert('Please paste some text first.'); return; }
+        const g = extractGroup(paste);
+        if (g) {
+            allGroups.push(g);
+            allGroups.forEach((grp, i) => { grp.sno = i + 1; });
+            render();
+            inputEl.value = '';
+        } else {
+            alert('Could not extract data.\nMake sure the pasted text includes the "Contact Us" section with CEO / Manager details.');
+        }
+    }
+
+    function clearAll() {
+        if (allGroups.length > 0 && confirm('Remove all extracted rows?')) {
+            allGroups = [];
+            render();
+        }
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════════════
+       EXCEL EXPORT — exact GLA Agent List format
+       Row 1 : Title   A1:G1 merged  bg #A1BFCC  bold 12pt  centred
+       Row 2 : Headers               bg #CEEBF6  bold 12pt  thin borders
+       Data  : S No / Company / Country / GLA ID merged per company group
+    ═══════════════════════════════════════════════════════════════════════════ */
+    function exportExcel() {
+        if (allGroups.length === 0) { alert('No data to export.'); return; }
+
+        const wb = XLSX.utils.book_new();
+        const ws = {};
+
+        const thin  = { style: 'thin', color: { rgb: '000000' } };
+        const bdr   = { top: thin, bottom: thin, left: thin, right: thin };
+
+        const titleSt = {
+            font:      { bold: true, sz: 12, name: 'Aptos Display', color: { rgb: '000000' } },
+            fill:      { fgColor: { rgb: 'A1BFCC' }, patternType: 'solid' },
+            alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
+            border: bdr
+        };
+        const hdrSt = {
+            font:      { bold: true, sz: 12, name: 'Aptos Display', color: { rgb: '000000' } },
+            fill:      { fgColor: { rgb: 'CEEBF6' }, patternType: 'solid' },
+            alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
+            border: bdr
+        };
+        const dataSt = {
+            font:      { sz: 11, name: 'Aptos Display', color: { rgb: '000000' } },
+            alignment: { vertical: 'center', wrapText: true },
+            border: bdr
+        };
+        const ctrSt = {
+            font:      { sz: 11, name: 'Aptos Display', color: { rgb: '000000' } },
+            alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
+            border: bdr
+        };
+
+        const mk = (v, s, t) => ({ v, s, t: t || (typeof v === 'number' ? 'n' : 's') });
+
+        // Row 1 — title (merged A1:G1)
+        ['A','B','C','D','E','F','G'].forEach(c => { ws[`${c}1`] = mk('', titleSt); });
+        ws['A1'] = mk('GLA Network Agent List - Feb 2026', titleSt);
+
+        // Row 2 — column headers
+        const HDRS = ['S No','Company Name','Agent Name','Email','Contact','Country','GLA ID'];
+        ['A','B','C','D','E','F','G'].forEach((c, i) => { ws[`${c}2`] = mk(HDRS[i], hdrSt); });
+
+        // Data rows
+        const merges = [{ s:{r:0,c:0}, e:{r:0,c:6} }]; // title
+        let row = 3;
+
+        allGroups.forEach(g => {
+            const startRow = row;
+            g.contacts.forEach((c, ci) => {
+                if (ci === 0) {
+                    ws[`A${row}`] = mk(g.sno,                     ctrSt,  'n');
+                    ws[`B${row}`] = mk(g.company,                 dataSt);
+                    ws[`F${row}`] = mk(g.country,                 dataSt);
+                    ws[`G${row}`] = mk(g.glaId ? +g.glaId : '',   ctrSt,  g.glaId ? 'n' : 's');
+                } else {
+                    ws[`A${row}`] = mk('', ctrSt);
+                    ws[`B${row}`] = mk('', dataSt);
+                    ws[`F${row}`] = mk('', dataSt);
+                    ws[`G${row}`] = mk('', ctrSt);
+                }
+                ws[`C${row}`] = mk(c.name,    dataSt);
+                ws[`D${row}`] = mk(c.email,   dataSt);
+                ws[`E${row}`] = mk(c.contact, dataSt);
+                row++;
+            });
+
+            const endRow = row - 1;
+            if (endRow > startRow) {
+                const sr = startRow - 1, er = endRow - 1;
+                merges.push({ s:{r:sr,c:0}, e:{r:er,c:0} }); // S No
+                merges.push({ s:{r:sr,c:1}, e:{r:er,c:1} }); // Company
+                merges.push({ s:{r:sr,c:5}, e:{r:er,c:5} }); // Country
+                merges.push({ s:{r:sr,c:6}, e:{r:er,c:6} }); // GLA ID
+            }
+        });
+
+        ws['!ref']    = `A1:G${row - 1}`;
+        ws['!merges'] = merges;
+        ws['!cols']   = [
+            { wpx:  38 }, // A  S No
+            { wpx: 320 }, // B  Company Name
+            { wpx: 140 }, // C  Agent Name
+            { wpx: 235 }, // D  Email
+            { wpx: 200 }, // E  Contact
+            { wpx:  90 }, // F  Country
+            { wpx:  80 }, // G  GLA ID
+        ];
+        ws['!rows'] = [{ hpx: 26 }, { hpx: 20 }];
+        for (let r = 3; r < row; r++) ws['!rows'].push({ hpx: 16 });
+
+        XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+
+        const today = new Date().toISOString().slice(0, 10);
+        XLSX.writeFile(wb, `GLA_Agent_List_${today}.xlsx`, { bookType: 'xlsx', cellStyles: true });
+    }
+
+    /* ── bindings ───────────────────────────────────────────────────────────── */
+    document.getElementById('extractBtn').addEventListener('click', addFromPaste);
+    document.getElementById('clearBtn').addEventListener('click', clearAll);
+    document.getElementById('exportBtn').addEventListener('click', exportExcel);
+    inputEl.addEventListener('keydown', e => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); addFromPaste(); }
+    });
+
+    render();
+})();
+</script>
+</body>
+</html>
